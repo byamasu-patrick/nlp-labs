@@ -53,7 +53,7 @@ The goal of this repository is to provide a practical environment for:
 Clone the repository:
 
 ```bash
-git clone https://github.com/<username>/nlp-labs.git
+git clone https://github.com/byamasu-patrick/nlp-labs.git
 cd nlp-labs
 ```
 
