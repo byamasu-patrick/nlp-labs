@@ -1,6 +1,6 @@
 import re
 import string
-import numpy as np
+
 from nltk.corpus import stopwords
 from nltk.stem import PorterStemmer
 from nltk.tokenize import TweetTokenizer
@@ -8,21 +8,25 @@ from nltk.tokenize import TweetTokenizer
 from matplotlib.patches import Ellipse
 import matplotlib.transforms as transforms
 
+import numpy as np # Library for linear algebra and math utils
+import pandas as pd
+
 def process_tweet(tweet):
-    """Process tweet function.
+    '''
     Input:
         tweet: a string containing a tweet
     Output:
         tweets_clean: a list of words containing the processed tweet
 
-    """
+    '''
     stemmer = PorterStemmer()
     stopwords_english = stopwords.words('english')
     # remove stock market tickers like $GE
     tweet = re.sub(r'\$\w*', '', tweet)
     # remove old style retweet text "RT"
     tweet = re.sub(r'^RT[\s]+', '', tweet)
-    # remove hyperlinks    
+    # remove hyperlinks
+    #tweet = re.sub(r'https?:\/\/.*[\r\n]*', '', tweet)
     tweet = re.sub(r'https?://[^\s\n\r]+', '', tweet)
     # remove hashtags
     # only removing the hash # sign from the word
@@ -35,7 +39,7 @@ def process_tweet(tweet):
     tweets_clean = []
     for word in tweet_tokens:
         if (word not in stopwords_english and  # remove stopwords
-                word not in string.punctuation):  # remove punctuation
+            word not in string.punctuation):  # remove punctuation
             # tweets_clean.append(word)
             stem_word = stemmer.stem(word)  # stemming word
             tweets_clean.append(stem_word)
@@ -43,39 +47,10 @@ def process_tweet(tweet):
     return tweets_clean
 
 
-def build_freqs(tweets, ys):
-    """Build frequencies.
-    Input:
-        tweets: a list of tweets
-        ys: an m x 1 array with the sentiment label of each tweet
-            (either 0 or 1)
-    Output:
-        freqs: a dictionary mapping each (word, sentiment) pair to its
-        frequency
-    """
-    # Convert np array to list since zip needs an iterable.
-    # The squeeze is necessary or the list ends up with one element.
-    # Also note that this is just a NOP if ys is already a list.
-    yslist = np.squeeze(ys).tolist()
-
-    # Start with an empty dictionary and populate it by looping over all tweets
-    # and over all processed words in each tweet.
-    freqs = {}
-    for y, tweet in zip(yslist, tweets):
-        for word in process_tweet(tweet):
-            pair = (word, y)
-            if pair in freqs:
-                freqs[pair] += 1
-            else:
-                freqs[pair] = 1
-
-    return freqs
-
-
 def test_lookup(func):
     freqs = {('sad', 0): 4,
-            ('happy', 1): 12,
-            ('oppressed', 0): 7}
+             ('happy', 1): 12,
+             ('oppressed', 0): 7}
     word = 'happy'
     label = 1
     if func(freqs, word, label) == 12:
@@ -100,25 +75,23 @@ def lookup(freqs, word, label):
 
     return n
 
+# From: https://matplotlib.org/3.1.1/gallery/statistics/confidence_ellipse.html#sphx-glr-gallery-statistics-confidence-ellipse-py
+
+
 def confidence_ellipse(x, y, ax, n_std=3.0, facecolor='none', **kwargs):
     """
     Create a plot of the covariance confidence ellipse of `x` and `y`
-
     Parameters
     ----------
     x, y : array_like, shape (n, )
         Input data.
-
     ax : matplotlib.axes.Axes
         The axes object to draw the ellipse into.
-
     n_std : float
         The number of standard deviations to determine the ellipse's radiuses.
-
     Returns
     -------
     matplotlib.patches.Ellipse
-
     Other parameters
     ----------------
     kwargs : `~matplotlib.patches.Patch` properties
@@ -155,3 +128,43 @@ def confidence_ellipse(x, y, ax, n_std=3.0, facecolor='none', **kwargs):
 
     ellipse.set_transform(transf + ax.transData)
     return ax.add_patch(ellipse)
+
+
+def get_dict(file_name):
+    """
+    This function returns the english to french dictionary given a file where the each column corresponds to a word.
+    Check out the files this function takes in your workspace.
+    """
+    my_file = pd.read_csv(file_name, delimiter=' ')
+    etof = {}  # the english to french dictionary to be returned
+    for i in range(len(my_file)):
+        # indexing into the rows.
+        en = my_file.loc[i][0]
+        fr = my_file.loc[i][1]
+        etof[en] = fr
+
+    return etof
+
+
+def cosine_similarity(A, B):
+    '''
+    Input:
+        A: a numpy array which corresponds to a word vector
+        B: A numpy array which corresponds to a word vector
+    Output:
+        cos: numerical number representing the cosine similarity between A and B.
+    '''
+    # you have to set this variable to the true label.
+    cos = -10    
+    dot = np.dot(A, B)
+    normb = np.linalg.norm(B)
+    
+    if len(A.shape) == 1: # If A is just a vector, we get the norm
+        norma = np.linalg.norm(A)
+        cos = dot / (norma * normb)
+    else: # If A is a matrix, then compute the norms of the word vectors of the matrix (norm of each row)
+        norma = np.linalg.norm(A, axis=1)
+        epsilon = 1.0e-9 # to avoid division by 0
+        cos = dot / (norma * normb + epsilon)
+        
+    return cos
